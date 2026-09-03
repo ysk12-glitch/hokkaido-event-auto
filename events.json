@@ -1,0 +1,65 @@
+[
+  {
+    "date": "2026-09-05",
+    "endDate": "2026-09-05",
+    "name": "北海道芸術花火",
+    "place": "札幌市・モエレ沼公園",
+    "type": "花火",
+    "hotel": "大",
+    "traffic": "大"
+  },
+  {
+    "date": "2026-09-11",
+    "endDate": "2026-10-03",
+    "name": "さっぽろオータムフェスト",
+    "place": "札幌市・大通公園",
+    "type": "グルメ",
+    "hotel": "大",
+    "traffic": "大"
+  },
+  {
+    "date": "2026-09-19",
+    "endDate": "2026-09-21",
+    "name": "北の恵み あさひかわ食べマルシェ",
+    "place": "旭川市",
+    "type": "グルメ",
+    "hotel": "大",
+    "traffic": "大"
+  },
+  {
+    "date": "2026-09-26",
+    "endDate": "2026-09-26",
+    "name": "SBI MUSIC CIRCUS HOKKAIDO",
+    "place": "札幌市・大和ハウス プレミストドーム",
+    "type": "ライブ",
+    "hotel": "大",
+    "traffic": "大"
+  },
+  {
+    "date": "2026-10-04",
+    "endDate": "2026-10-04",
+    "name": "札幌マラソン",
+    "place": "札幌市",
+    "type": "マラソン",
+    "hotel": "大",
+    "traffic": "大"
+  },
+  {
+    "date": "2026-10-30",
+    "endDate": "2026-11-01",
+    "name": "Snow Man DOME TOUR 2026-2027",
+    "place": "札幌市・大和ハウス プレミストドーム",
+    "type": "ライブ",
+    "hotel": "大",
+    "traffic": "大"
+  },
+  {
+    "date": "2026-11-14",
+    "endDate": "2026-11-15",
+    "name": "YOASOBI ASIA 10-CITY DOME & STADIUM TOUR",
+    "place": "札幌市・大和ハウス プレミストドーム",
+    "type": "ライブ",
+    "hotel": "大",
+    "traffic": "大"
+  }
+]
