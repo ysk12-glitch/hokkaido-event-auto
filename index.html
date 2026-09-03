@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>北海道イベントチェック</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    background: #f5f6f8;
+    color: #222;
+}
+
+header {
+    background: #1f4f7a;
+    color: white;
+    padding: 20px 16px;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 22px;
+}
+
+header p {
+    margin: 6px 0 0;
+    font-size: 13px;
+    opacity: 0.9;
+}
+
+.container {
+    padding: 15px;
+    max-width: 700px;
+    margin: auto;
+}
+
+.month-control {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 15px;
+}
+
+.month-control button {
+    border: none;
+    background: white;
+    padding: 10px 15px;
+    border-radius: 10px;
+    font-size: 20px;
+}
+
+#monthTitle {
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.update {
+    background: white;
+    padding: 10px 12px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+    font-size: 12px;
+    color: #666;
+}
+
+.event {
+    background: white;
+    border-radius: 14px;
+    padding: 15px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.event-date {
+    font-weight: bold;
+    color: #1f4f7a;
+    font-size: 14px;
+}
+
+.event-name {
+    font-size: 18px;
+    font-weight: bold;
+    margin: 6px 0;
+}
+
+.event-place {
+    font-size: 14px;
+    color: #555;
+}
+
+.badges {
+    margin-top: 10px;
+}
+
+.badge {
+    display: inline-block;
+    padding: 5px 8px;
+    border-radius: 7px;
+    margin-right: 5px;
+    font-size: 11px;
+    background: #eee;
+}
+
+.hotel {
+    background: #ffe8e8;
+    color: #b00020;
+}
+
+.traffic {
+    background: #fff2d6;
+    color: #9a6500;
+}
+
+.empty {
+    text-align: center;
+    padding: 40px 10px;
+    color: #777;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>北海道イベントチェック</h1>
+    <p>北海道内のマラソン・祭り・花火・ライブなど、人が集まるイベントをチェック</p>
+</header>
+
+<div class="container">
+
+    <div class="month-control">
+        <button onclick="changeMonth(-1)">‹</button>
+        <div id="monthTitle"></div>
+        <button onclick="changeMonth(1)">›</button>
+    </div>
+
+    <div class="update" id="updateInfo">
+        イベント情報を読み込み中…
+    </div>
+
+    <div id="eventList"></div>
+
+</div>
+
+<script>
+
+let currentDate = new Date();
+
+const events = [
+    {
+        date: "2026-09-05",
+        endDate: "2026-09-05",
+        name: "北海道芸術花火",
+        place: "札幌市・モエレ沼公園",
+        type: "花火",
+        hotel: "大",
+        traffic: "大"
+    },
+    {
+        date: "2026-09-11",
+        endDate: "2026-10-03",
+        name: "さっぽろオータムフェスト",
+        place: "札幌市・大通公園",
+        type: "グルメ",
+        hotel: "大",
+        traffic: "大"
+    },
+    {
+        date: "2026-09-19",
+        endDate: "2026-09-21",
+        name: "北の恵み あさひかわ食べマルシェ",
+        place: "旭川市",
+        type: "グルメ",
+        hotel: "大",
+        traffic: "大"
+    },
+    {
+        date: "2026-09-26",
+        endDate: "2026-09-26",
+        name: "SBI MUSIC CIRCUS HOKKAIDO",
+        place: "札幌市・大和ハウス プレミストドーム",
+        type: "ライブ",
+        hotel: "大",
+        traffic: "大"
+    },
+    {
+        date: "2026-10-04",
+        endDate: "2026-10-04",
+        name: "札幌マラソン",
+        place: "札幌市",
+        type: "マラソン",
+        hotel: "大",
+        traffic: "大"
+    },
+    {
+        date: "2026-10-30",
+        endDate: "2026-11-01",
+        name: "Snow Man DOME TOUR 2026-2027",
+        place: "札幌市・大和ハウス プレミストドーム",
+        type: "ライブ",
+        hotel: "大",
+        traffic: "大"
+    },
+    {
+        date: "2026-11-14",
+        endDate: "2026-11-15",
+        name: "YOASOBI ASIA 10-CITY DOME & STADIUM TOUR",
+        place: "札幌市・大和ハウス プレミストドーム",
+        type: "ライブ",
+        hotel: "大",
+        traffic: "大"
+    }
+];
+
+function formatDate(date) {
+    const d = new Date(date);
+    return `${d.getMonth()+1}/${d.getDate()}`;
+}
+
+function changeMonth(amount) {
+    currentDate.setMonth(currentDate.getMonth() + amount);
+    render();
+}
+
+function render() {
+
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+
+    document.getElementById("monthTitle").textContent =
+        `${year}年${month + 1}月`;
+
+    const list = document.getElementById("eventList");
+
+    const filtered = events.filter(event => {
+
+        const start = new Date(event.date);
+        const end = new Date(event.endDate);
+
+        const monthStart = new Date(year, month, 1);
+        const monthEnd = new Date(year, month + 1, 0);
+
+        return start <= monthEnd && end >= monthStart;
+    });
+
+    if (filtered.length === 0) {
+        list.innerHTML =
+            '<div class="empty">この月のイベント情報はありません。</div>';
+        return;
+    }
+
+    list.innerHTML = filtered.map(event => {
+
+        let badges = "";
+
+        if (event.hotel === "大") {
+            badges += '<span class="badge hotel">🏨 ホテル影響大</span>';
+        }
+
+        if (event.traffic === "大") {
+            badges += '<span class="badge traffic">🚗 交通影響大</span>';
+        }
+
+        return `
+            <div class="event">
+                <div class="event-date">
+                    ${formatDate(event.date)}
+                    ${event.endDate !== event.date ? " ～ " + formatDate(event.endDate) : ""}
+                </div>
+
+                <div class="event-name">${event.name}</div>
+
+                <div class="event-place">
+                    📍 ${event.place}
+                </div>
+
+                <div class="badges">
+                    <span class="badge">${event.type}</span>
+                    ${badges}
+                </div>
+            </div>
+        `;
+
+    }).join("");
+
+    document.getElementById("updateInfo").textContent =
+        "📡 イベント情報：自動更新機能を準備中";
+}
+
+render();
+
+</script>
+
+</body>
+</html>
