@@ -1,0 +1,428 @@
+name: 北海道イベント自動更新
+
+on:
+  schedule:
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-events:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: リポジトリを取得
+        uses: actions/checkout@v4
+
+      - name: Pythonを準備
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: 必要なライブラリをインストール
+        run: |
+          pip install requests beautifulsoup4
+
+      - name: 北海道イベント情報を取得
+        run: |
+          python <<'PY'
+          import requests
+          from bs4 import BeautifulSoup
+          import json
+          import re
+          from datetime import datetime
+
+          BASE_URL = "https://www.visit-hokkaido.jp/event/"
+
+          headers = {
+              "User-Agent": "Mozilla/5.0"
+          }
+
+          session = requests.Session()
+          session.headers.update(headers)
+
+          # 現在のイベントデータを読み込む
+          try:
+              with open("events.json", "r", encoding="utf-8") as f:
+                  events = json.load(f)
+          except Exception:
+              events = []
+
+          # 既存イベントの重複チェック用
+          existing = set()
+
+          for e in events:
+              key = (
+                  e.get("name", "").strip(),
+                  e.get("date", "")
+              )
+              existing.add(key)
+
+          new_events = []
+
+          # 日付を解析
+          def parse_dates(text):
+
+              text = text.replace("（", "(").replace("）", ")")
+              text = text.replace("～", "-")
+              text = text.replace("〜", "-")
+
+              # 2026年9月11日から10月3日
+              m = re.search(
+                  r"(20\d{2})年(\d{1,2})月(\d{1,2})日.*?(\d{1,2})月(\d{1,2})日",
+                  text
+              )
+
+              if m:
+                  year = int(m.group(1))
+                  sm = int(m.group(2))
+                  sd = int(m.group(3))
+                  em = int(m.group(4))
+                  ed = int(m.group(5))
+
+                  return (
+                      f"{year:04d}-{sm:02d}-{sd:02d}",
+                      f"{year:04d}-{em:02d}-{ed:02d}"
+                  )
+
+              # 2026年9月11日
+              m = re.search(
+                  r"(20\d{2})年(\d{1,2})月(\d{1,2})日",
+                  text
+              )
+
+              if m:
+                  year = int(m.group(1))
+                  month = int(m.group(2))
+                  day = int(m.group(3))
+
+                  date = f"{year:04d}-{month:02d}-{day:02d}"
+
+                  return date, date
+
+              # 2026/9/11-10/3
+              m = re.search(
+                  r"(20\d{2})/(\d{1,2})/(\d{1,2})\s*-\s*(\d{1,2})/(\d{1,2})",
+                  text
+              )
+
+              if m:
+                  year = int(m.group(1))
+                  sm = int(m.group(2))
+                  sd = int(m.group(3))
+                  em = int(m.group(4))
+                  ed = int(m.group(5))
+
+                  return (
+                      f"{year:04d}-{sm:02d}-{sd:02d}",
+                      f"{year:04d}-{em:02d}-{ed:02d}"
+                  )
+
+              # 2026/9/11
+              m = re.search(
+                  r"(20\d{2})/(\d{1,2})/(\d{1,2})",
+                  text
+              )
+
+              if m:
+                  year = int(m.group(1))
+                  month = int(m.group(2))
+                  day = int(m.group(3))
+
+                  date = f"{year:04d}-{month:02d}-{day:02d}"
+
+                  return date, date
+
+              return None, None
+
+
+          # 最大10ページ取得
+          url = BASE_URL
+
+          for page in range(10):
+
+              try:
+                  response = session.get(
+                      url,
+                      timeout=30
+                  )
+
+                  response.raise_for_status()
+
+              except Exception as error:
+                  print("取得エラー:", error)
+                  break
+
+              soup = BeautifulSoup(
+                  response.text,
+                  "html.parser"
+              )
+
+              # イベントページを探す
+              links = soup.find_all("a", href=True)
+
+              found_on_page = 0
+
+              for link in links:
+
+                  name = link.get_text(
+                      " ",
+                      strip=True
+                  )
+
+                  href = link.get("href", "")
+
+                  if not name:
+                      continue
+
+                  # イベント詳細ページらしいリンクだけ処理
+                  if "/event/" not in href:
+                      continue
+
+                  # 「more」などは除外
+                  if name.lower() in [
+                      "more",
+                      "next",
+                      "次へ",
+                      "次"
+                  ]:
+                      continue
+
+                  # 親要素からイベント情報を取得
+                  card = link
+
+                  for _ in range(5):
+                      if card.parent:
+                          card = card.parent
+
+                      text = card.get_text(
+                          " ",
+                          strip=True
+                      )
+
+                      if len(text) > 50:
+                          break
+
+                  date, end_date = parse_dates(text)
+
+                  if not date:
+                      continue
+
+                  # 日付が古すぎるものは除外
+                  try:
+                      event_date = datetime.strptime(
+                          date,
+                          "%Y-%m-%d"
+                      )
+
+                      if event_date.year < 2026:
+                          continue
+
+                  except Exception:
+                      continue
+
+                  # 地域
+                  place = ""
+
+                  regions = [
+                      "札幌・定山渓",
+                      "札幌近郊",
+                      "小樽・ニセコ近郊",
+                      "洞爺・登別・日高近郊",
+                      "函館・函館近郊",
+                      "松前・江差・奥尻",
+                      "旭川・層雲峡・天人峡",
+                      "富良野・美瑛近郊",
+                      "稚内・利尻・礼文・留萌",
+                      "知床・網走・紋別",
+                      "十勝・帯広",
+                      "釧路・阿寒湖・摩周湖・根室"
+                  ]
+
+                  for region in regions:
+                      if region in text:
+                          place = region
+                          break
+
+                  # カテゴリ判定
+                  event_type = "イベント"
+
+                  category_map = {
+                      "花火": "花火",
+                      "祭り": "祭り",
+                      "まつり": "祭り",
+                      "音楽": "音楽",
+                      "ライブ": "ライブ",
+                      "グルメ": "グルメ",
+                      "フード": "グルメ",
+                      "スポーツ": "スポーツ",
+                      "マラソン": "マラソン",
+                      "イルミネーション": "イルミネーション",
+                      "ライトアップ": "イルミネーション",
+                      "雪": "冬まつり",
+                      "冬まつり": "冬まつり"
+                  }
+
+                  for word, category in category_map.items():
+                      if word in name or word in text:
+                          event_type = category
+                          break
+
+                  # 影響度を簡易判定
+                  hotel = "小"
+                  traffic = "小"
+                  crowd = "小"
+
+                  large_words = [
+                      "北海道最大級",
+                      "最大級",
+                      "大規模",
+                      "一大イベント",
+                      "フェスティバル",
+                      "花火大会",
+                      "マラソン",
+                      "祭り",
+                      "ライブ"
+                  ]
+
+                  medium_words = [
+                      "人気",
+                      "開催",
+                      "イベント"
+                  ]
+
+                  if any(
+                      word in text
+                      for word in large_words
+                  ):
+                      hotel = "中"
+                      traffic = "中"
+                      crowd = "中"
+
+                  if (
+                      "札幌" in name
+                      or "函館" in name
+                      or "旭川" in name
+                      or "帯広" in name
+                  ):
+                      traffic = "中"
+
+                  if "マラソン" in name:
+                      hotel = "大"
+                      traffic = "大"
+                      crowd = "大"
+
+                  if "花火大会" in name:
+                      hotel = "中"
+                      traffic = "大"
+                      crowd = "大"
+
+                  key = (
+                      name,
+                      date
+                  )
+
+                  if key in existing:
+                      continue
+
+                  event = {
+                      "date": date,
+                      "endDate": end_date or date,
+                      "name": name,
+                      "place": place or "北海道",
+                      "type": event_type,
+                      "hotel": hotel,
+                      "traffic": traffic,
+                      "crowd": crowd,
+                      "description": "北海道観光公式サイト HOKKAIDO LOVE! より自動取得"
+                  }
+
+                  new_events.append(event)
+                  existing.add(key)
+                  found_on_page += 1
+
+              print(
+                  f"ページ {page + 1}: "
+                  f"{found_on_page}件追加"
+              )
+
+              # 次ページ
+              next_link = None
+
+              for link in soup.find_all("a", href=True):
+
+                  text = link.get_text(
+                      " ",
+                      strip=True
+                  )
+
+                  if text in ["次へ", "次"]:
+
+                      next_link = link.get("href")
+                      break
+
+              if not next_link:
+                  break
+
+              if next_link.startswith("/"):
+                  url = (
+                      "https://www.visit-hokkaido.jp"
+                      + next_link
+                  )
+
+              elif next_link.startswith("http"):
+                  url = next_link
+
+              else:
+                  break
+
+
+          # 日付順に並べる
+          events.sort(
+              key=lambda x: (
+                  x.get("date", ""),
+                  x.get("name", "")
+              )
+          )
+
+          # 保存
+          with open(
+              "events.json",
+              "w",
+              encoding="utf-8"
+          ) as f:
+
+              json.dump(
+                  events,
+                  f,
+                  ensure_ascii=False,
+                  indent=2
+              )
+
+          print(
+              "今回追加したイベント:",
+              len(new_events)
+          )
+
+          print(
+              "現在のイベント総数:",
+              len(events)
+          )
+
+          PY
+
+      - name: 変更を保存
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add events.json
+
+          if git diff --cached --quiet; then
+            echo "変更はありません"
+          else
+            git commit -m "北海道イベント情報を自動更新"
+            git push
+          fi
